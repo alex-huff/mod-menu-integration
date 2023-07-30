@@ -23,7 +23,7 @@
     "minecraft": "~1.20.1",
     "java": ">=17",
     "fabric-api": "*",
-    "mod-menu": ">=7.2.0"
+    "modmenu": ">=7.1.0"
   },
   "custom": {
     "modmenu": {

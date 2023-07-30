@@ -1,18 +1,16 @@
 package com.alexfh.mmintegration;
 
+import com.alexfh.mmintegration.server.MMIServer;
 import net.fabricmc.api.ClientModInitializer;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-public class ModMenuIntegration implements ClientModInitializer
+public
+class ModMenuIntegration implements ClientModInitializer
 {
-    public static final Logger LOGGER = LoggerFactory.getLogger("mod-menu-integration");
-
-	@Override
-	public
-	void onInitializeClient()
-	{
-		ModMenuIntegration.LOGGER.info("hi");
-	}
+    @Override
+    public
+    void onInitializeClient()
+    {
+        new MMIServer().start();
+    }
 }
