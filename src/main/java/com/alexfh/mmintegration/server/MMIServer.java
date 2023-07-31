@@ -105,6 +105,7 @@ class MMIServer extends Thread
                 if (message.length != 2)
                 {
                     this.sendResponse(socketChannel, "open-config takes exactly 1 argument", false);
+                    return;
                 }
                 String modID = message[1];
                 CompletableFuture<Boolean> successFuture = new CompletableFuture<>();
