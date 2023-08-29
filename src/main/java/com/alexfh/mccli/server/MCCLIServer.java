@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
@@ -30,15 +31,29 @@ class MCCLIServer extends Thread
         socketPath = socketDir.resolve("mc-cli-ipc-" + pid + ".sock");
     }
 
+    private ServerSocketChannel serverChannel = null;
+
     @Override
     public
     void run()
     {
-        if (!this.tryDeleteSocket())
+        this.runServer();
+        this.tryDeleteSocket();
+    }
+
+    public
+    void shutdown()
+    {
+        this.interrupt();
+        this.tryCloseChannel();
+        try
         {
-            return;
+            this.join();
         }
-        this.startServer();
+        catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
         this.tryDeleteSocket();
     }
 
@@ -57,24 +72,59 @@ class MCCLIServer extends Thread
     }
 
     private
-    void startServer()
+    void tryCloseChannel()
     {
-        UnixDomainSocketAddress socketAddress = UnixDomainSocketAddress.of(MCCLIServer.socketPath);
-        try (ServerSocketChannel serverChannel = ServerSocketChannel.open(StandardProtocolFamily.UNIX))
+        try
         {
-            serverChannel.bind(socketAddress);
-            while (true)
-            {
-                try (SocketChannel channel = serverChannel.accept())
-                {
-                    this.handleClient(channel);
-                }
-            }
+            this.serverChannel.close();
         }
-        catch (IOException | ExecutionException | InterruptedException e)
+        catch (IOException e)
         {
             e.printStackTrace();
         }
+    }
+
+    public
+    boolean initServer()
+    {
+        if (!this.tryDeleteSocket())
+        {
+            return false;
+        }
+        UnixDomainSocketAddress socketAddress = UnixDomainSocketAddress.of(MCCLIServer.socketPath);
+        try
+        {
+            this.serverChannel = ServerSocketChannel.open(StandardProtocolFamily.UNIX);
+            this.serverChannel.bind(socketAddress);
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+            return false;
+        }
+        return true;
+    }
+
+    private
+    void runServer()
+    {
+        while (!this.isInterrupted())
+        {
+            try (SocketChannel channel = this.serverChannel.accept())
+            {
+                this.handleClient(channel);
+            }
+            catch (ClosedChannelException | InterruptedException ignored)
+            {
+                break;
+            }
+            catch (IOException | ExecutionException e)
+            {
+                e.printStackTrace();
+                break;
+            }
+        }
+        this.tryCloseChannel();
     }
 
     private
