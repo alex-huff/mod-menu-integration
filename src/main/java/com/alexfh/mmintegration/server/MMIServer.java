@@ -26,7 +26,7 @@ class MMIServer extends Thread
     {
         String xdgRuntimeDir = System.getenv("XDG_RUNTIME_DIR");
         Path   socketDir     = Path.of(xdgRuntimeDir == null ? System.getProperty("java.io.tmpdir") : xdgRuntimeDir);
-        long pid = ProcessHandle.current().pid();
+        long   pid           = ProcessHandle.current().pid();
         socketPath = socketDir.resolve("mod-menu-integration-ipc-" + pid + ".sock");
     }
 
@@ -89,6 +89,26 @@ class MMIServer extends Thread
         String messageType = message[0];
         switch (messageType)
         {
+            case "set-fov":
+                if (message.length != 2)
+                {
+                    this.sendResponse(socketChannel, "set-fov takes exactly 1 argument", false);
+                    return;
+                }
+                String fovString = message[1];
+                try
+                {
+                    int fov = Integer.parseInt(fovString);
+                    MinecraftClient.getInstance()
+                        .execute(() -> MinecraftClient.getInstance().options.getFov().setValue(fov));
+                    this.sendResponse(socketChannel, "setting fov: " + fov, true);
+                }
+                catch (NumberFormatException ignored)
+                {
+                    this.sendResponse(socketChannel, "invalid fov: " + fovString, false);
+                    return;
+                }
+                break;
             case "get-mod-names":
                 if (message.length > 1)
                 {
@@ -108,7 +128,8 @@ class MMIServer extends Thread
                 }
                 String modName = message[1];
                 CompletableFuture<Boolean> successFuture = new CompletableFuture<>();
-                MinecraftClient.getInstance().execute(() -> successFuture.complete(ModMenuUtil.openConfigScreenFromModName(modName)));
+                MinecraftClient.getInstance()
+                    .execute(() -> successFuture.complete(ModMenuUtil.openConfigScreenFromModName(modName)));
                 boolean success = successFuture.join();
                 if (success)
                 {
