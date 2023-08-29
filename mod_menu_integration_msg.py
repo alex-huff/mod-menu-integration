@@ -16,13 +16,13 @@ class IPCIOError(Exception):
         self.message = message
 
 
-def getIPCSocketPath():
+def getIPCSocketPath(pid):
     xdgRuntimeDir = os.environ.get(XDG_RUNTIME_DIR)
     if xdgRuntimeDir:
         unixSocketDirPath = xdgRuntimeDir
     else:
         unixSocketDirPath = tempfile.gettempdir()
-    return os.path.join(unixSocketDirPath, "mod-menu-integration-ipc.sock")
+    return os.path.join(unixSocketDirPath, f"mod-menu-integration-ipc-{pid}.sock")
 
 
 def sendMessage(ipcSocket, message):
@@ -115,11 +115,12 @@ parser.add_argument(
 )
 parser.add_argument("-q", "--quiet", action="store_true", help="be quiet")
 parser.add_argument("-s", "--socket", help="use alternative IPC socket path")
+parser.add_argument("-p", "--pid", required=True, type=int, help="pid of the Minecraft instance")
 parser.add_argument("message", nargs="+")
 args = parser.parse_args()
 
 ipcSocket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-unixSocketPath = args.socket if args.socket else getIPCSocketPath()
+unixSocketPath = args.socket if args.socket else getIPCSocketPath(args.pid)
 try:
     ipcSocket.connect(unixSocketPath)
     sendMessage(ipcSocket, args.message)

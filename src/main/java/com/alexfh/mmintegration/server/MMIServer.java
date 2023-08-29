@@ -1,8 +1,7 @@
 package com.alexfh.mmintegration.server;
 
-import com.terraformersmc.modmenu.ModMenu;
+import com.alexfh.mmintegration.util.ModMenuUtil;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
 
 import java.io.IOException;
 import java.net.StandardProtocolFamily;
@@ -27,7 +26,8 @@ class MMIServer extends Thread
     {
         String xdgRuntimeDir = System.getenv("XDG_RUNTIME_DIR");
         Path   socketDir     = Path.of(xdgRuntimeDir == null ? System.getProperty("java.io.tmpdir") : xdgRuntimeDir);
-        socketPath = socketDir.resolve("mod-menu-integration-ipc.sock");
+        long pid = ProcessHandle.current().pid();
+        socketPath = socketDir.resolve("mod-menu-integration-ipc-" + pid + ".sock");
     }
 
     @Override
@@ -96,8 +96,7 @@ class MMIServer extends Thread
                     return;
                 }
                 CompletableFuture<List<String>> modNamesFuture = new CompletableFuture<>();
-                MinecraftClient.getInstance()
-                    .execute(() -> modNamesFuture.complete(ModMenu.MODS.keySet().stream().toList()));
+                MinecraftClient.getInstance().execute(() -> modNamesFuture.complete(ModMenuUtil.getModMenuNames()));
                 List<String> modNames = modNamesFuture.join();
                 this.sendResponse(socketChannel, String.join("\n", modNames), true);
                 break;
@@ -107,28 +106,17 @@ class MMIServer extends Thread
                     this.sendResponse(socketChannel, "open-config takes exactly 1 argument", false);
                     return;
                 }
-                String modID = message[1];
+                String modName = message[1];
                 CompletableFuture<Boolean> successFuture = new CompletableFuture<>();
-                MinecraftClient.getInstance().execute(() ->
-                {
-                    MinecraftClient minecraftClient = MinecraftClient.getInstance();
-                    Screen          configScreen    = ModMenu.getConfigScreen(modID, minecraftClient.currentScreen);
-                    if (configScreen == null)
-                    {
-                        successFuture.complete(false);
-                        return;
-                    }
-                    minecraftClient.setScreen(configScreen);
-                    successFuture.complete(true);
-                });
+                MinecraftClient.getInstance().execute(() -> successFuture.complete(ModMenuUtil.openConfigScreenFromModName(modName)));
                 boolean success = successFuture.join();
                 if (success)
                 {
-                    this.sendResponse(socketChannel, "opened " + modID + " config", true);
+                    this.sendResponse(socketChannel, "opened " + modName + " config", true);
                 }
                 else
                 {
-                    this.sendResponse(socketChannel, modID + " has not config screen", false);
+                    this.sendResponse(socketChannel, modName + " has no config screen", false);
                 }
                 break;
             default:
