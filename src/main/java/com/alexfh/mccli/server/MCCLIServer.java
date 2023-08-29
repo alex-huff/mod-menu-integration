@@ -1,6 +1,6 @@
-package com.alexfh.mmintegration.server;
+package com.alexfh.mccli.server;
 
-import com.alexfh.mmintegration.util.ModMenuUtil;
+import com.alexfh.mccli.util.ModMenuUtil;
 import net.minecraft.client.MinecraftClient;
 
 import java.io.IOException;
@@ -18,7 +18,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 public
-class MMIServer extends Thread
+class MCCLIServer extends Thread
 {
     private static final Path socketPath;
 
@@ -27,7 +27,7 @@ class MMIServer extends Thread
         String xdgRuntimeDir = System.getenv("XDG_RUNTIME_DIR");
         Path   socketDir     = Path.of(xdgRuntimeDir == null ? System.getProperty("java.io.tmpdir") : xdgRuntimeDir);
         long   pid           = ProcessHandle.current().pid();
-        socketPath = socketDir.resolve("mod-menu-integration-ipc-" + pid + ".sock");
+        socketPath = socketDir.resolve("mc-cli-ipc-" + pid + ".sock");
     }
 
     @Override
@@ -47,7 +47,7 @@ class MMIServer extends Thread
     {
         try
         {
-            Files.deleteIfExists(MMIServer.socketPath);
+            Files.deleteIfExists(MCCLIServer.socketPath);
         }
         catch (IOException ignored)
         {
@@ -59,7 +59,7 @@ class MMIServer extends Thread
     private
     void startServer()
     {
-        UnixDomainSocketAddress socketAddress = UnixDomainSocketAddress.of(MMIServer.socketPath);
+        UnixDomainSocketAddress socketAddress = UnixDomainSocketAddress.of(MCCLIServer.socketPath);
         try (ServerSocketChannel serverChannel = ServerSocketChannel.open(StandardProtocolFamily.UNIX))
         {
             serverChannel.bind(socketAddress);

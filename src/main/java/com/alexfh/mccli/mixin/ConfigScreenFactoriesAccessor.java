@@ -1,4 +1,4 @@
-package com.alexfh.mmintegration.mixin;
+package com.alexfh.mccli.mixin;
 
 import com.terraformersmc.modmenu.ModMenu;
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;

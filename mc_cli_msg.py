@@ -22,7 +22,7 @@ def getIPCSocketPath(pid):
         unixSocketDirPath = xdgRuntimeDir
     else:
         unixSocketDirPath = tempfile.gettempdir()
-    return os.path.join(unixSocketDirPath, f"mod-menu-integration-ipc-{pid}.sock")
+    return os.path.join(unixSocketDirPath, f"mc-cli-ipc-{pid}.sock")
 
 
 def sendMessage(ipcSocket, message):
@@ -101,10 +101,10 @@ def recvall(ipcSocket, toRead):
     return data
 
 
-PROGRAM_NAME = "mod-menu-integration-message"
+PROGRAM_NAME = "mc-cli"
 VERSION = f"{PROGRAM_NAME} 0.0.1"
 parser = argparse.ArgumentParser(
-    prog=PROGRAM_NAME, description="IPC message client for mod-menu-integration"
+    prog=PROGRAM_NAME, description="IPC message client for mc-cli"
 )
 parser.add_argument(
     "-v",

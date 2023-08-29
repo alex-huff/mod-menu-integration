@@ -1,25 +1,25 @@
 {
   "schemaVersion": 1,
-  "id": "mod-menu-integration",
+  "id": "mc-cli",
   "version": "${version}",
-  "name": "Mod Menu Integration",
-  "description": "Remotely retrieve and open mod configuration pages using Mod Menu",
+  "name": "mc-cli",
+  "description": "Remotely control a Minecraft instance",
   "authors": [
     "phonis"
   ],
   "contact": {
-    "sources": "https://github.com/alex-huff/mod-menu-integration"
+    "sources": "https://github.com/alex-huff/mc-cli"
   },
   "license": "CC0-1.0",
-  "icon": "assets/mmintegration/icon.png",
+  "icon": "assets/mccli/icon.png",
   "environment": "client",
   "entrypoints": {
     "client": [
-      "com.alexfh.mmintegration.ModMenuIntegration"
+      "com.alexfh.mccli.MCCLI"
     ]
   },
   "mixins": [
-    "mmintegration.mixins.json"
+    "mccli.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=0.14.21",
@@ -31,7 +31,7 @@
   "custom": {
     "modmenu": {
       "links": {
-        "github": "https://github.com/alex-huff/mod-menu-integration"
+        "github": "https://github.com/alex-huff/mc-cli"
       }
     }
   }

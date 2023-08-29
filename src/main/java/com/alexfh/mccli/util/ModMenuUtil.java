@@ -1,6 +1,6 @@
-package com.alexfh.mmintegration.util;
+package com.alexfh.mccli.util;
 
-import com.alexfh.mmintegration.mixin.ConfigScreenFactoriesAccessor;
+import com.alexfh.mccli.mixin.ConfigScreenFactoriesAccessor;
 import com.terraformersmc.modmenu.ModMenu;
 import com.terraformersmc.modmenu.util.mod.Mod;
 import net.minecraft.client.MinecraftClient;
