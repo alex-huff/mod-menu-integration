@@ -161,7 +161,7 @@ try:
     ipcSocket.connect(unixSocketPath)
     success, response = sendAndReceiveMessage(ipcSocket, args.message)
     if not args.quiet:
-        print(response)
+        print(response, file=sys.stdout if success else sys.stderr)
     sys.exit(0 if success else -1)
 except FileNotFoundError:
     print(f"path: {unixSocketPath}, was not a valid file", file=sys.stderr)

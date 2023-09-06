@@ -3,7 +3,9 @@ package com.alexfh.mccli.server;
 import com.alexfh.mccli.util.ModMenuUtil;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.network.ServerInfo;
+import net.minecraft.text.Text;
 
 import java.io.IOException;
 import java.net.StandardProtocolFamily;
@@ -239,7 +241,7 @@ class MCCLIServer extends Thread
                         MinecraftClient.getInstance().options.getFov().setValue(fov);
                         fovFuture.complete(fov);
                     });
-                    this.sendResponse(socketChannel, "setting fov: " + fovFuture.join(), true);
+                    this.sendResponse(socketChannel, "set fov: " + fovFuture.join(), true);
                 }
                 catch (NumberFormatException ignored)
                 {
@@ -268,8 +270,10 @@ class MCCLIServer extends Thread
                 Boolean isCommand;
                 switch (sendType)
                 {
-                    case "chat" -> isCommand = false;
-                    case "command" -> isCommand = true;
+                    case "chat", "chat-local" ->
+                        isCommand = false;
+                    case "command" ->
+                        isCommand = true;
                     default ->
                     {
                         isCommand = null;
@@ -284,6 +288,17 @@ class MCCLIServer extends Thread
                 CompletableFuture<Boolean> messageSuccessFuture = new CompletableFuture<>();
                 MinecraftClient.getInstance().execute(() ->
                 {
+                    if (sendType.equals("chat-local"))
+                    {
+                        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+                        boolean canSend = player != null;
+                        if (canSend)
+                        {
+                            player.sendMessage(Text.of(messageText));
+                        }
+                        messageSuccessFuture.complete(canSend);
+                        return;
+                    }
                     ClientPlayNetworkHandler networkHandler = MinecraftClient.getInstance().getNetworkHandler();
                     if (networkHandler == null)
                     {
