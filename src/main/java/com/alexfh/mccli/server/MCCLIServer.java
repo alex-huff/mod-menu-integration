@@ -2,6 +2,8 @@ package com.alexfh.mccli.server;
 
 import com.alexfh.mccli.util.ModMenuUtil;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayNetworkHandler;
+import net.minecraft.client.network.ServerInfo;
 
 import java.io.IOException;
 import java.net.StandardProtocolFamily;
@@ -16,11 +18,16 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 public
 class MCCLIServer extends Thread
 {
+
+    private static
+    class ClientClosedSocketException extends IOException
+    {
+    }
+
     private static final Path socketPath;
 
     static
@@ -114,11 +121,11 @@ class MCCLIServer extends Thread
             {
                 this.handleClient(channel);
             }
-            catch (ClosedChannelException | InterruptedException ignored)
+            catch (ClosedChannelException ignored)
             {
                 break;
             }
-            catch (IOException | ExecutionException e)
+            catch (IOException e)
             {
                 e.printStackTrace();
                 break;
@@ -128,7 +135,45 @@ class MCCLIServer extends Thread
     }
 
     private
-    void handleClient(SocketChannel socketChannel) throws IOException, ExecutionException, InterruptedException
+    void handleClient(SocketChannel socketChannel) throws IOException
+    {
+        while (true)
+        {
+            try
+            {
+                this.handleMessage(socketChannel);
+            }
+            catch (ClientClosedSocketException ignored)
+            {
+                break;
+            }
+        }
+    }
+
+    private
+    boolean verifyNumArguments(SocketChannel socketChannel, String messageType, String[] message, int num)
+        throws IOException
+    {
+        return this.verifyNumArguments(socketChannel, messageType, message, num, num);
+    }
+
+    private
+    boolean verifyNumArguments(SocketChannel socketChannel, String messageType, String[] message, int min, int max)
+        throws IOException
+    {
+        int numArguments = message.length - 1;
+        if (numArguments < min || numArguments > max)
+        {
+            String expectedNumArgumentsMessage = min == max ? min + " arguments"
+                                                            : "between " + min + " and " + max + " " + "arguments";
+            this.sendResponse(socketChannel, messageType + " takes " + expectedNumArgumentsMessage, false);
+            return false;
+        }
+        return true;
+    }
+
+    private
+    void handleMessage(SocketChannel socketChannel) throws IOException
     {
         String[] message = this.readMessage(socketChannel);
         if (message.length < 1)
@@ -136,62 +181,136 @@ class MCCLIServer extends Thread
             this.sendResponse(socketChannel, "empty message", false);
             return;
         }
-        String messageType = message[0];
+        String  messageType       = message[0];
+        boolean numArgumentsValid = true;
         switch (messageType)
         {
-            case "set-fov":
-                if (message.length != 2)
+            case "ping", "get-username", "get-server-ip", "get-config-names" -> numArgumentsValid
+                = this.verifyNumArguments(socketChannel, messageType, message, 0);
+            case "set-fov", "open-config" -> numArgumentsValid = this.verifyNumArguments(socketChannel, messageType,
+                message, 1);
+            case "send" -> numArgumentsValid = this.verifyNumArguments(socketChannel, messageType, message, 2);
+        }
+        if (!numArgumentsValid)
+        {
+            return;
+        }
+        switch (messageType)
+        {
+            case "ping" -> this.sendResponse(socketChannel, "pong", true);
+            case "get-username" -> this.sendResponse(socketChannel,
+                MinecraftClient.getInstance().getSession().getUsername(), true);
+            case "get-server-ip" ->
+            {
+                CompletableFuture<String> addressFuture = new CompletableFuture<>();
+                MinecraftClient.getInstance().execute(() ->
                 {
-                    this.sendResponse(socketChannel, "set-fov takes exactly 1 argument", false);
-                    return;
+                    ServerInfo serverInfo = MinecraftClient.getInstance().getCurrentServerEntry();
+                    String     address    = serverInfo == null ? null : serverInfo.address;
+                    addressFuture.complete(address);
+                });
+                String address = addressFuture.join();
+                if (address != null)
+                {
+                    this.sendResponse(socketChannel, address, true);
                 }
+                else
+                {
+                    this.sendResponse(socketChannel, "not connected to server", false);
+                }
+            }
+            case "get-config-names" ->
+            {
+                CompletableFuture<List<String>> configNamesFuture = new CompletableFuture<>();
+                MinecraftClient.getInstance()
+                    .execute(() -> configNamesFuture.complete(ModMenuUtil.getModMenuConfigNames()));
+                List<String> configNames = configNamesFuture.join();
+                this.sendResponse(socketChannel, String.join("\n", configNames), true);
+            }
+            case "set-fov" ->
+            {
                 String fovString = message[1];
                 try
                 {
-                    int fov = Integer.parseInt(fovString);
-                    MinecraftClient.getInstance()
-                        .execute(() -> MinecraftClient.getInstance().options.getFov().setValue(fov));
-                    this.sendResponse(socketChannel, "setting fov: " + fov, true);
+                    int                        fov       = Integer.parseInt(fovString);
+                    CompletableFuture<Integer> fovFuture = new CompletableFuture<>();
+                    MinecraftClient.getInstance().execute(() ->
+                    {
+                        MinecraftClient.getInstance().options.getFov().setValue(fov);
+                        fovFuture.complete(fov);
+                    });
+                    this.sendResponse(socketChannel, "setting fov: " + fovFuture.join(), true);
                 }
                 catch (NumberFormatException ignored)
                 {
                     this.sendResponse(socketChannel, "invalid fov: " + fovString, false);
-                    return;
                 }
-                break;
-            case "get-mod-names":
-                if (message.length > 1)
-                {
-                    this.sendResponse(socketChannel, messageType + " takes no arguments", false);
-                    return;
-                }
-                CompletableFuture<List<String>> modNamesFuture = new CompletableFuture<>();
-                MinecraftClient.getInstance().execute(() -> modNamesFuture.complete(ModMenuUtil.getModMenuNames()));
-                List<String> modNames = modNamesFuture.join();
-                this.sendResponse(socketChannel, String.join("\n", modNames), true);
-                break;
-            case "open-config":
-                if (message.length != 2)
-                {
-                    this.sendResponse(socketChannel, "open-config takes exactly 1 argument", false);
-                    return;
-                }
-                String modName = message[1];
-                CompletableFuture<Boolean> successFuture = new CompletableFuture<>();
+            }
+            case "open-config" ->
+            {
+                String                     configName          = message[1];
+                CompletableFuture<Boolean> configSuccessFuture = new CompletableFuture<>();
                 MinecraftClient.getInstance()
-                    .execute(() -> successFuture.complete(ModMenuUtil.openConfigScreenFromModName(modName)));
-                boolean success = successFuture.join();
-                if (success)
+                    .execute(() -> configSuccessFuture.complete(ModMenuUtil.openConfigScreenFromModName(configName)));
+                boolean configSuccess = configSuccessFuture.join();
+                if (configSuccess)
                 {
-                    this.sendResponse(socketChannel, "opened " + modName + " config", true);
+                    this.sendResponse(socketChannel, "opened " + configName + " config", true);
                 }
                 else
                 {
-                    this.sendResponse(socketChannel, modName + " has no config screen", false);
+                    this.sendResponse(socketChannel, configName + " has no config screen", false);
                 }
-                break;
-            default:
-                this.sendResponse(socketChannel, "invalid message type: " + messageType, false);
+            }
+            case "send" ->
+            {
+                String  sendType = message[1];
+                Boolean isCommand;
+                switch (sendType)
+                {
+                    case "chat" -> isCommand = false;
+                    case "command" -> isCommand = true;
+                    default ->
+                    {
+                        isCommand = null;
+                        this.sendResponse(socketChannel, "invalid send type", false);
+                    }
+                }
+                if (isCommand == null)
+                {
+                    break;
+                }
+                String                     messageText          = message[2];
+                CompletableFuture<Boolean> messageSuccessFuture = new CompletableFuture<>();
+                MinecraftClient.getInstance().execute(() ->
+                {
+                    ClientPlayNetworkHandler networkHandler = MinecraftClient.getInstance().getNetworkHandler();
+                    if (networkHandler == null)
+                    {
+                        messageSuccessFuture.complete(false);
+                        return;
+                    }
+                    if (isCommand)
+                    {
+                        networkHandler.sendChatCommand(messageText);
+                    }
+                    else
+                    {
+                        networkHandler.sendChatMessage(messageText);
+                    }
+                    messageSuccessFuture.complete(true);
+                });
+                boolean messageSuccess = messageSuccessFuture.join();
+                if (messageSuccess)
+                {
+                    this.sendResponse(socketChannel, "sent", true);
+                }
+                else
+                {
+                    this.sendResponse(socketChannel, "failed to send", false);
+                }
+            }
+            default -> this.sendResponse(socketChannel, "invalid message type: " + messageType, false);
         }
     }
 
@@ -290,7 +409,7 @@ class MCCLIServer extends Thread
         }
         if (buffer.remaining() > 0)
         {
-            throw new IOException("could not fill entire buffer");
+            throw new ClientClosedSocketException();
         }
     }
 

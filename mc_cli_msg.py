@@ -3,7 +3,9 @@ import os
 import sys
 import argparse
 import tempfile
+import glob
 XDG_RUNTIME_DIR = "XDG_RUNTIME_DIR"
+SOCKET_NAME = "mc-cli-ipc"
 
 
 class MessageFormatException(Exception):
@@ -16,13 +18,36 @@ class IPCIOError(Exception):
         self.message = message
 
 
-def getIPCSocketPath(pid):
+def getIPCSocketDir():
     xdgRuntimeDir = os.environ.get(XDG_RUNTIME_DIR)
-    if xdgRuntimeDir:
-        unixSocketDirPath = xdgRuntimeDir
-    else:
-        unixSocketDirPath = tempfile.gettempdir()
-    return os.path.join(unixSocketDirPath, f"mc-cli-ipc-{pid}.sock")
+    return xdgRuntimeDir if xdgRuntimeDir else tempfile.gettempdir()
+
+
+def getIPCSocketPath(pid=None, username=None, ip=None):
+    ipcSocketDir = getIPCSocketDir()
+    if pid:
+        return os.path.join(ipcSocketDir, f"{SOCKET_NAME}-{pid}.sock")
+    hasMatchConditions = any((username, ip))
+    for path in glob.iglob(f"{ipcSocketDir}/{SOCKET_NAME}-*.sock"):
+        ipcSocket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            ipcSocket.connect(path)
+            if not hasMatchConditions:
+                pingSuccess, _ = sendAndReceiveMessage(ipcSocket, ["ping"])
+                if pingSuccess:
+                    return path
+                continue
+            usernameSuccess, usernameResponse = sendAndReceiveMessage(ipcSocket, ["get-username"])
+            ipSuccess, ipResponse = sendAndReceiveMessage(ipcSocket, ["get-server-ip"])
+            usernameMatched = not username or (usernameSuccess and usernameResponse == username)
+            ipMatched = not ip or (ipSuccess and ipResponse == ip)
+            if usernameMatched and ipMatched:
+                return path
+        except Exception:
+            pass
+        finally:
+            ipcSocket.close()
+    return None
 
 
 def sendMessage(ipcSocket, message):
@@ -100,6 +125,9 @@ def recvall(ipcSocket, toRead):
         toRead -= bytesRead
     return data
 
+def sendAndReceiveMessage(ipcSocket, message):
+    sendMessage(ipcSocket, message)
+    return readResponse(ipcSocket)
 
 PROGRAM_NAME = "mc-cli"
 VERSION = f"{PROGRAM_NAME} 0.0.1"
@@ -115,18 +143,25 @@ parser.add_argument(
 )
 parser.add_argument("-q", "--quiet", action="store_true", help="be quiet")
 parser.add_argument("-s", "--socket", help="use alternative IPC socket path")
-parser.add_argument("-p", "--pid", required=True, type=int, help="pid of the Minecraft instance")
+parser.add_argument("-p", "--pid", type=int, help="pid of the Minecraft instance")
+parser.add_argument("-u", "--by-username", nargs=1, dest="username", help="username associated with the Minecraft instance")
+parser.add_argument("-i", "--by-ip", nargs=1, dest="ip", help="server ip the Minecraft instance is connected to")
 parser.add_argument("message", nargs="+")
 args = parser.parse_args()
 
+pid = args.pid
+username = args.username[0] if args.username else None
+ip = args.ip[0] if args.ip else None
+unixSocketPath = args.socket if args.socket else getIPCSocketPath(args.pid, username, ip)
+if not unixSocketPath:
+    print(f"could not find a matching client", file=sys.stderr)
+    sys.exit(-1)
 ipcSocket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-unixSocketPath = args.socket if args.socket else getIPCSocketPath(args.pid)
 try:
     ipcSocket.connect(unixSocketPath)
-    sendMessage(ipcSocket, args.message)
-    success, string = readResponse(ipcSocket)
+    success, response = sendAndReceiveMessage(ipcSocket, args.message)
     if not args.quiet:
-        print(string)
+        print(response)
     sys.exit(0 if success else -1)
 except FileNotFoundError:
     print(f"path: {unixSocketPath}, was not a valid file", file=sys.stderr)

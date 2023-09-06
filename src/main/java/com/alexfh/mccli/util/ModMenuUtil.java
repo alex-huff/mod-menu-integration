@@ -14,7 +14,7 @@ public
 class ModMenuUtil
 {
     public static
-    List<String> getModMenuNames()
+    List<String> getModMenuConfigNames()
     {
         return ConfigScreenFactoriesAccessor.getConfigScreenFactories().keySet().stream()
             .map(modID -> ModMenu.MODS.get(modID).getName()).collect(Collectors.toList());
