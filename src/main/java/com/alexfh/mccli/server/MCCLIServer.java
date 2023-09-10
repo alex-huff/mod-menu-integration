@@ -191,8 +191,8 @@ class MCCLIServer extends Thread
         {
             case "ping", "get-username", "get-server-ip", "get-config-names", "get-mods" -> numArgumentsValid
                 = this.verifyNumArguments(socketChannel, messageType, message, 0);
-            case "set-fov", "open-config" -> numArgumentsValid = this.verifyNumArguments(socketChannel, messageType,
-                message, 1);
+            case "set-fov", "set-brightness", "open-config" -> numArgumentsValid = this.verifyNumArguments(
+                socketChannel, messageType, message, 1);
             case "send" -> numArgumentsValid = this.verifyNumArguments(socketChannel, messageType, message, 2);
         }
         if (!numArgumentsValid)
@@ -258,6 +258,27 @@ class MCCLIServer extends Thread
                 {
                     this.sendResponse(socketChannel, "invalid fov: " + fovString, false);
                 }
+            }
+            case "set-brightness" ->
+            {
+                String brightnessString = message[1];
+                try
+                {
+                    double                    brightness       = Double.parseDouble(brightnessString);
+                    CompletableFuture<Double> brightnessFuture = new CompletableFuture<>();
+                    MinecraftClient.getInstance().execute(() ->
+                    {
+                        SimpleOption<Double> brightnessOption = MinecraftClient.getInstance().options.getGamma();
+                        brightnessOption.setValue(brightness);
+                        brightnessFuture.complete(brightnessOption.getValue());
+                    });
+                    this.sendResponse(socketChannel, "set brightness: " + brightnessFuture.join(), true);
+                }
+                catch (NumberFormatException ignored)
+                {
+                    this.sendResponse(socketChannel, "invalid brightness: " + brightnessString, false);
+                }
+
             }
             case "open-config" ->
             {
