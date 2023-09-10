@@ -1,10 +1,12 @@
 package com.alexfh.mccli.server;
 
 import com.alexfh.mccli.util.ModMenuUtil;
+import com.terraformersmc.modmenu.ModMenu;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.network.ServerInfo;
+import net.minecraft.client.option.SimpleOption;
 import net.minecraft.text.Text;
 
 import java.io.IOException;
@@ -187,7 +189,7 @@ class MCCLIServer extends Thread
         boolean numArgumentsValid = true;
         switch (messageType)
         {
-            case "ping", "get-username", "get-server-ip", "get-config-names" -> numArgumentsValid
+            case "ping", "get-username", "get-server-ip", "get-config-names", "get-mods" -> numArgumentsValid
                 = this.verifyNumArguments(socketChannel, messageType, message, 0);
             case "set-fov", "open-config" -> numArgumentsValid = this.verifyNumArguments(socketChannel, messageType,
                 message, 1);
@@ -229,6 +231,14 @@ class MCCLIServer extends Thread
                 List<String> configNames = configNamesFuture.join();
                 this.sendResponse(socketChannel, String.join("\n", configNames), true);
             }
+            case "get-mods" ->
+            {
+                CompletableFuture<List<String>> modsFuture = new CompletableFuture<>();
+                MinecraftClient.getInstance().execute(() -> modsFuture.complete(
+                    ModMenu.MODS.values().stream().map(mod -> mod.getName() + "\t" + mod.getVersion()).toList()));
+                List<String> mods = modsFuture.join();
+                this.sendResponse(socketChannel, String.join("\n", mods), true);
+            }
             case "set-fov" ->
             {
                 String fovString = message[1];
@@ -238,8 +248,9 @@ class MCCLIServer extends Thread
                     CompletableFuture<Integer> fovFuture = new CompletableFuture<>();
                     MinecraftClient.getInstance().execute(() ->
                     {
-                        MinecraftClient.getInstance().options.getFov().setValue(fov);
-                        fovFuture.complete(fov);
+                        SimpleOption<Integer> fovOption = MinecraftClient.getInstance().options.getFov();
+                        fovOption.setValue(fov);
+                        fovFuture.complete(fovOption.getValue());
                     });
                     this.sendResponse(socketChannel, "set fov: " + fovFuture.join(), true);
                 }
@@ -270,10 +281,8 @@ class MCCLIServer extends Thread
                 Boolean isCommand;
                 switch (sendType)
                 {
-                    case "chat", "chat-local" ->
-                        isCommand = false;
-                    case "command" ->
-                        isCommand = true;
+                    case "chat", "chat-local" -> isCommand = false;
+                    case "command" -> isCommand = true;
                     default ->
                     {
                         isCommand = null;
@@ -290,8 +299,8 @@ class MCCLIServer extends Thread
                 {
                     if (sendType.equals("chat-local"))
                     {
-                        ClientPlayerEntity player = MinecraftClient.getInstance().player;
-                        boolean canSend = player != null;
+                        ClientPlayerEntity player  = MinecraftClient.getInstance().player;
+                        boolean            canSend = player != null;
                         if (canSend)
                         {
                             player.sendMessage(Text.of(messageText));
