@@ -7,6 +7,7 @@ import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.option.SimpleOption;
+import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
 
 import java.io.IOException;
@@ -191,8 +192,8 @@ class MCCLIServer extends Thread
         {
             case "ping", "get-username", "get-server-ip", "get-config-names", "get-mods" -> numArgumentsValid
                 = this.verifyNumArguments(socketChannel, messageType, message, 0);
-            case "set-fov", "set-brightness", "open-config" -> numArgumentsValid = this.verifyNumArguments(
-                socketChannel, messageType, message, 1);
+            case "set-fov", "set-brightness", "open-config" -> numArgumentsValid
+                = this.verifyNumArguments(socketChannel, messageType, message, 1);
             case "send" -> numArgumentsValid = this.verifyNumArguments(socketChannel, messageType, message, 2);
         }
         if (!numArgumentsValid)
@@ -202,8 +203,8 @@ class MCCLIServer extends Thread
         switch (messageType)
         {
             case "ping" -> this.sendResponse(socketChannel, "pong", true);
-            case "get-username" -> this.sendResponse(socketChannel,
-                MinecraftClient.getInstance().getSession().getUsername(), true);
+            case "get-username" -> this.sendResponse(socketChannel, MinecraftClient.getInstance().getSession()
+                .getUsername(), true);
             case "get-server-ip" ->
             {
                 CompletableFuture<String> addressFuture = new CompletableFuture<>();
@@ -234,8 +235,8 @@ class MCCLIServer extends Thread
             case "get-mods" ->
             {
                 CompletableFuture<List<String>> modsFuture = new CompletableFuture<>();
-                MinecraftClient.getInstance().execute(() -> modsFuture.complete(
-                    ModMenu.MODS.values().stream().map(mod -> mod.getName() + "\t" + mod.getVersion()).toList()));
+                MinecraftClient.getInstance().execute(() -> modsFuture.complete(ModMenu.MODS.values().stream()
+                    .map(mod -> mod.getName() + "\t" + mod.getVersion()).toList()));
                 List<String> mods = modsFuture.join();
                 this.sendResponse(socketChannel, String.join("\n", mods), true);
             }
@@ -278,7 +279,26 @@ class MCCLIServer extends Thread
                 {
                     this.sendResponse(socketChannel, "invalid brightness: " + brightnessString, false);
                 }
-
+            }
+            case "set-volume" ->
+            {
+                String volumeString = message[1];
+                try
+                {
+                    double                    volume       = Double.parseDouble(volumeString);
+                    CompletableFuture<Double> volumeFuture = new CompletableFuture<>();
+                    MinecraftClient.getInstance().execute(() ->
+                    {
+                        SimpleOption<Double> volumeOption = MinecraftClient.getInstance().options.getSoundVolumeOption(SoundCategory.MASTER);
+                        volumeOption.setValue(volume);
+                        volumeFuture.complete(volumeOption.getValue());
+                    });
+                    this.sendResponse(socketChannel, "set volume: " + volumeFuture.join(), true);
+                }
+                catch (NumberFormatException ignored)
+                {
+                    this.sendResponse(socketChannel, "invalid volume: " + volumeString, false);
+                }
             }
             case "open-config" ->
             {
