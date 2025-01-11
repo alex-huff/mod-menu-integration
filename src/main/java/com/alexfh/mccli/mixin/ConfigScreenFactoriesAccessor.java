@@ -8,12 +8,13 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 import java.util.Map;
 
 @Mixin(ModMenu.class)
-public
-interface ConfigScreenFactoriesAccessor
+public interface ConfigScreenFactoriesAccessor
 {
+
     @Accessor("configScreenFactories")
     static Map<String, ConfigScreenFactory<?>> getConfigScreenFactories()
     {
         throw new AssertionError();
     }
+
 }

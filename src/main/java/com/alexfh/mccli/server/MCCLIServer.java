@@ -24,13 +24,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public
-class MCCLIServer extends Thread
+public class MCCLIServer extends Thread
 {
 
-    private static
-    class ClientClosedSocketException extends IOException
+    private static class ClientClosedSocketException extends IOException
     {
+
     }
 
     private static final Path socketPath;
@@ -38,23 +37,21 @@ class MCCLIServer extends Thread
     static
     {
         String xdgRuntimeDir = System.getenv("XDG_RUNTIME_DIR");
-        Path   socketDir     = Path.of(xdgRuntimeDir == null ? System.getProperty("java.io.tmpdir") : xdgRuntimeDir);
-        long   pid           = ProcessHandle.current().pid();
+        Path socketDir = Path.of(xdgRuntimeDir == null ? System.getProperty("java.io.tmpdir") : xdgRuntimeDir);
+        long pid = ProcessHandle.current().pid();
         socketPath = socketDir.resolve("mc-cli-ipc-" + pid + ".sock");
     }
 
     private ServerSocketChannel serverChannel = null;
 
     @Override
-    public
-    void run()
+    public void run()
     {
         this.runServer();
         this.tryDeleteSocket();
     }
 
-    public
-    void shutdown()
+    public void shutdown()
     {
         this.interrupt();
         this.tryCloseChannel();
@@ -69,8 +66,7 @@ class MCCLIServer extends Thread
         this.tryDeleteSocket();
     }
 
-    private
-    boolean tryDeleteSocket()
+    private boolean tryDeleteSocket()
     {
         try
         {
@@ -83,8 +79,7 @@ class MCCLIServer extends Thread
         return true;
     }
 
-    private
-    void tryCloseChannel()
+    private void tryCloseChannel()
     {
         try
         {
@@ -96,8 +91,7 @@ class MCCLIServer extends Thread
         }
     }
 
-    public
-    boolean initServer()
+    public boolean initServer()
     {
         if (!this.tryDeleteSocket())
         {
@@ -117,8 +111,7 @@ class MCCLIServer extends Thread
         return true;
     }
 
-    private
-    void runServer()
+    private void runServer()
     {
         while (!this.isInterrupted())
         {
@@ -139,8 +132,7 @@ class MCCLIServer extends Thread
         this.tryCloseChannel();
     }
 
-    private
-    void handleClient(SocketChannel socketChannel) throws IOException
+    private void handleClient(SocketChannel socketChannel) throws IOException
     {
         while (true)
         {
@@ -155,16 +147,14 @@ class MCCLIServer extends Thread
         }
     }
 
-    private
-    boolean verifyNumArguments(SocketChannel socketChannel, String messageType, String[] message, int num)
+    private boolean verifyNumArguments(SocketChannel socketChannel, String messageType, String[] message, int num)
         throws IOException
     {
         return this.verifyNumArguments(socketChannel, messageType, message, num, num);
     }
 
-    private
-    boolean verifyNumArguments(SocketChannel socketChannel, String messageType, String[] message, int min, int max)
-        throws IOException
+    private boolean verifyNumArguments(SocketChannel socketChannel, String messageType, String[] message, int min,
+                                       int max) throws IOException
     {
         int numArguments = message.length - 1;
         if (numArguments < min || numArguments > max)
@@ -177,8 +167,7 @@ class MCCLIServer extends Thread
         return true;
     }
 
-    private
-    void handleMessage(SocketChannel socketChannel) throws IOException
+    private void handleMessage(SocketChannel socketChannel) throws IOException
     {
         String[] message = this.readMessage(socketChannel);
         if (message.length < 1)
@@ -186,14 +175,14 @@ class MCCLIServer extends Thread
             this.sendResponse(socketChannel, "empty message", false);
             return;
         }
-        String  messageType       = message[0];
+        String messageType = message[0];
         boolean numArgumentsValid = true;
         switch (messageType)
         {
-            case "ping", "get-username", "get-server-ip", "get-config-names", "get-mods" -> numArgumentsValid
-                = this.verifyNumArguments(socketChannel, messageType, message, 0);
-            case "set-fov", "set-brightness", "open-config" -> numArgumentsValid
-                = this.verifyNumArguments(socketChannel, messageType, message, 1);
+            case "ping", "get-username", "get-server-ip", "get-config-names", "get-mods" ->
+                numArgumentsValid = this.verifyNumArguments(socketChannel, messageType, message, 0);
+            case "set-fov", "set-brightness", "open-config" ->
+                numArgumentsValid = this.verifyNumArguments(socketChannel, messageType, message, 1);
             case "send" -> numArgumentsValid = this.verifyNumArguments(socketChannel, messageType, message, 2);
         }
         if (!numArgumentsValid)
@@ -203,15 +192,15 @@ class MCCLIServer extends Thread
         switch (messageType)
         {
             case "ping" -> this.sendResponse(socketChannel, "pong", true);
-            case "get-username" -> this.sendResponse(socketChannel, MinecraftClient.getInstance().getSession()
-                .getUsername(), true);
+            case "get-username" ->
+                this.sendResponse(socketChannel, MinecraftClient.getInstance().getSession().getUsername(), true);
             case "get-server-ip" ->
             {
                 CompletableFuture<String> addressFuture = new CompletableFuture<>();
                 MinecraftClient.getInstance().execute(() ->
                 {
                     ServerInfo serverInfo = MinecraftClient.getInstance().getCurrentServerEntry();
-                    String     address    = serverInfo == null ? null : serverInfo.address;
+                    String address = serverInfo == null ? null : serverInfo.address;
                     addressFuture.complete(address);
                 });
                 String address = addressFuture.join();
@@ -245,7 +234,7 @@ class MCCLIServer extends Thread
                 String fovString = message[1];
                 try
                 {
-                    int                        fov       = Integer.parseInt(fovString);
+                    int fov = Integer.parseInt(fovString);
                     CompletableFuture<Integer> fovFuture = new CompletableFuture<>();
                     MinecraftClient.getInstance().execute(() ->
                     {
@@ -265,7 +254,7 @@ class MCCLIServer extends Thread
                 String brightnessString = message[1];
                 try
                 {
-                    double                    brightness       = Double.parseDouble(brightnessString);
+                    double brightness = Double.parseDouble(brightnessString);
                     CompletableFuture<Double> brightnessFuture = new CompletableFuture<>();
                     MinecraftClient.getInstance().execute(() ->
                     {
@@ -285,11 +274,12 @@ class MCCLIServer extends Thread
                 String volumeString = message[1];
                 try
                 {
-                    double                    volume       = Double.parseDouble(volumeString);
+                    double volume = Double.parseDouble(volumeString);
                     CompletableFuture<Double> volumeFuture = new CompletableFuture<>();
                     MinecraftClient.getInstance().execute(() ->
                     {
-                        SimpleOption<Double> volumeOption = MinecraftClient.getInstance().options.getSoundVolumeOption(SoundCategory.MASTER);
+                        SimpleOption<Double> volumeOption
+                            = MinecraftClient.getInstance().options.getSoundVolumeOption(SoundCategory.MASTER);
                         volumeOption.setValue(volume);
                         volumeFuture.complete(volumeOption.getValue());
                     });
@@ -302,7 +292,7 @@ class MCCLIServer extends Thread
             }
             case "open-config" ->
             {
-                String                     configName          = message[1];
+                String configName = message[1];
                 CompletableFuture<Boolean> configSuccessFuture = new CompletableFuture<>();
                 MinecraftClient.getInstance()
                     .execute(() -> configSuccessFuture.complete(ModMenuUtil.openConfigScreenFromModName(configName)));
@@ -318,7 +308,7 @@ class MCCLIServer extends Thread
             }
             case "send" ->
             {
-                String  sendType = message[1];
+                String sendType = message[1];
                 Boolean isCommand;
                 switch (sendType)
                 {
@@ -334,17 +324,17 @@ class MCCLIServer extends Thread
                 {
                     break;
                 }
-                String                     messageText          = message[2];
+                String messageText = message[2];
                 CompletableFuture<Boolean> messageSuccessFuture = new CompletableFuture<>();
                 MinecraftClient.getInstance().execute(() ->
                 {
                     if (sendType.equals("chat-local"))
                     {
-                        ClientPlayerEntity player  = MinecraftClient.getInstance().player;
-                        boolean            canSend = player != null;
+                        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+                        boolean canSend = player != null;
                         if (canSend)
                         {
-                            player.sendMessage(Text.of(messageText));
+                            player.sendMessage(Text.of(messageText), true);
                         }
                         messageSuccessFuture.complete(canSend);
                         return;
@@ -379,26 +369,23 @@ class MCCLIServer extends Thread
         }
     }
 
-    public
-    void sendResponse(SocketChannel socketChannel, String message, boolean success) throws IOException
+    public void sendResponse(SocketChannel socketChannel, String message, boolean success) throws IOException
     {
         this.sendVarInt(socketChannel, success ? 1 : 0);
         this.sendUTF8String(socketChannel, message);
     }
 
-    public
-    void sendUTF8String(SocketChannel socketChannel, String message) throws IOException
+    public void sendUTF8String(SocketChannel socketChannel, String message) throws IOException
     {
         byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
         this.sendVarInt(socketChannel, messageBytes.length);
         this.sendAllBytes(socketChannel, messageBytes);
     }
 
-    public
-    void sendVarInt(SocketChannel socketChannel, int uInt) throws IOException
+    public void sendVarInt(SocketChannel socketChannel, int uInt) throws IOException
     {
-        List<Byte> varIntBytes     = new ArrayList<>();
-        int        continuationBit = 0x80;
+        List<Byte> varIntBytes = new ArrayList<>();
+        int continuationBit = 0x80;
         while (continuationBit > 0)
         {
             int lowSeven = uInt & 0x7F;
@@ -415,8 +402,7 @@ class MCCLIServer extends Thread
         this.sendAllBytes(socketChannel, primitiveVarIntBytes);
     }
 
-    public
-    void sendAllBytes(SocketChannel socketChannel, byte[] bytes) throws IOException
+    public void sendAllBytes(SocketChannel socketChannel, byte[] bytes) throws IOException
     {
         if (socketChannel.write(ByteBuffer.wrap(bytes)) < bytes.length)
         {
@@ -424,11 +410,10 @@ class MCCLIServer extends Thread
         }
     }
 
-    public
-    String[] readMessage(SocketChannel socketChannel) throws IOException
+    public String[] readMessage(SocketChannel socketChannel) throws IOException
     {
-        int      messageLength = this.readVarInt(socketChannel);
-        String[] message       = new String[messageLength];
+        int messageLength = this.readVarInt(socketChannel);
+        String[] message = new String[messageLength];
         for (int i = 0; i < messageLength; i++)
         {
             message[i] = this.readUTF8String(socketChannel);
@@ -436,21 +421,19 @@ class MCCLIServer extends Thread
         return message;
     }
 
-    private
-    String readUTF8String(SocketChannel socketChannel) throws IOException
+    private String readUTF8String(SocketChannel socketChannel) throws IOException
     {
-        int        stringBytesSize = this.readVarInt(socketChannel);
-        ByteBuffer buffer          = ByteBuffer.allocate(stringBytesSize);
+        int stringBytesSize = this.readVarInt(socketChannel);
+        ByteBuffer buffer = ByteBuffer.allocate(stringBytesSize);
         this.readAllBytes(socketChannel, buffer);
         return new String(buffer.array(), StandardCharsets.UTF_8);
     }
 
-    private
-    int readVarInt(SocketChannel socketChannel) throws IOException
+    private int readVarInt(SocketChannel socketChannel) throws IOException
     {
-        int        continuationBit  = 0x80;
-        int        varInt           = 0;
-        int        bytesProcessed   = 0;
+        int continuationBit = 0x80;
+        int varInt = 0;
+        int bytesProcessed = 0;
         ByteBuffer singleByteBuffer = ByteBuffer.allocate(1);
         while (continuationBit > 0)
         {
@@ -459,15 +442,14 @@ class MCCLIServer extends Thread
             int varIntByte = singleByteBuffer.get();
             singleByteBuffer.clear();
             continuationBit = varIntByte & continuationBit;
-            varIntByte      = varIntByte & 0x7F;
+            varIntByte = varIntByte & 0x7F;
             varInt |= varIntByte << (7 * bytesProcessed);
             bytesProcessed++;
         }
         return varInt;
     }
 
-    private
-    void readAllBytes(SocketChannel socketChannel, ByteBuffer buffer) throws IOException
+    private void readAllBytes(SocketChannel socketChannel, ByteBuffer buffer) throws IOException
     {
         while (socketChannel.read(buffer) > 0)
         {

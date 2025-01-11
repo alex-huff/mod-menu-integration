@@ -10,19 +10,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public
-class ModMenuUtil
+public class ModMenuUtil
 {
-    public static
-    List<String> getModMenuConfigNames()
+
+    public static List<String> getModMenuConfigNames()
     {
         return ConfigScreenFactoriesAccessor.getConfigScreenFactories().keySet().stream()
-            .filter(ModMenu.MODS::containsKey)
-            .map(modID -> ModMenu.MODS.get(modID).getName()).collect(Collectors.toList());
+            .filter(ModMenu.MODS::containsKey).map(modID -> ModMenu.MODS.get(modID).getName())
+            .collect(Collectors.toList());
     }
 
-    public static
-    boolean openConfigScreenFromModName(String modName)
+    public static boolean openConfigScreenFromModName(String modName)
     {
         MinecraftClient minecraftClient = MinecraftClient.getInstance();
         Map.Entry<String, Mod> modIDEntry = ModMenu.MODS.entrySet().stream()
@@ -31,7 +29,7 @@ class ModMenuUtil
         {
             return false;
         }
-        String modID        = modIDEntry.getKey();
+        String modID = modIDEntry.getKey();
         Screen configScreen = ModMenu.getConfigScreen(modID, minecraftClient.currentScreen);
         if (configScreen == null)
         {
@@ -40,4 +38,5 @@ class ModMenuUtil
         minecraftClient.setScreen(configScreen);
         return true;
     }
+
 }
